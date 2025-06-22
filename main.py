@@ -1,37 +1,46 @@
-# redeploy trigger
+
+import os
 from telegram import Update
 from telegram.ext import ApplicationBuilder, CommandHandler, MessageHandler, ContextTypes, filters
-import openai
-from dotenv import load_dotenv
-import os
+from openai import OpenAI
 
-load_dotenv()  # .env fayldan o‘qish
+# API kalitlari
+OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
+TELEGRAM_API_KEY = os.getenv("TELEGRAM_API_KEY")
 
-openai.api_key = os.getenv("OPENAI_API_KEY")
-BOT_TOKEN = os.getenv("TELEGRAM_API_KEY")
+# OpenAI client
+client = OpenAI(api_key=OPENAI_API_KEY)
 
+# Start komandasi uchun
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    await update.message.reply_text("Salom! Men BehruzAlChatGPT_Bot. Menga savol ber!")
+    await update.message.reply_text("Salom! Men BehruzAlChatGPT botman. Menga savol bering!")
 
-async def chat_with_gpt(update: Update, context: ContextTypes.DEFAULT_TYPE):
+# Oddiy xabarlar uchun
+async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user_message = update.message.text
+
     try:
-        response = openai.ChatCompletion.create(
+        response = client.chat.completions.create(
             model="gpt-3.5-turbo",
             messages=[{"role": "user", "content": user_message}]
         )
-        reply = response['choices'][0]['message']['content']
+
+        reply = response.choices[0].message.content
         await update.message.reply_text(reply)
+
     except Exception as e:
         await update.message.reply_text(f"Xatolik yuz berdi: {e}")
 
-def main():
-    app = ApplicationBuilder().token(BOT_TOKEN).build()
+# Botni ishga tushirish
+async def main():
+    app = ApplicationBuilder().token(TELEGRAM_API_KEY).build()
 
     app.add_handler(CommandHandler("start", start))
-    app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, chat_with_gpt))
+    app.add_handler(MessageHandler(filters.TEXT & (~filters.COMMAND), handle_message))
 
-    app.run_polling()
+    print("Bot Railway’da ishlayapti...")
+    await app.run_polling()
 
 if __name__ == '__main__':
-    main()
+    import asyncio
+    asyncio.run(main())
