@@ -1,46 +1,52 @@
-
 import os
+from dotenv import load_dotenv
+import openai
 from telegram import Update
-from telegram.ext import ApplicationBuilder, CommandHandler, MessageHandler, ContextTypes, filters
-from openai import OpenAI
+from telegram.ext import ApplicationBuilder, CommandHandler, ContextTypes
 
-# API kalitlari
+# .env faylni o‘qish
+load_dotenv()
+
+# OpenAI va Telegram API kalitlarini olish
 OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
 TELEGRAM_API_KEY = os.getenv("TELEGRAM_API_KEY")
 
-# OpenAI client
-client = OpenAI(api_key=OPENAI_API_KEY)
+# OpenAI API kalitini o‘rnatish
+openai.api_key = OPENAI_API_KEY
 
-# Start komandasi uchun
+# /start komandasi uchun handler funksiyasi
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    await update.message.reply_text("Salom! Men BehruzAlChatGPT botman. Menga savol bering!")
+    await update.message.reply_text("Salom! Men OpenAI yordamida ishlovchi botman. Savolingizni yozing.")
 
-# Oddiy xabarlar uchun
-async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    user_message = update.message.text
-
+# /ask komandasi uchun handler funksiyasi
+async def ask(update: Update, context: ContextTypes.DEFAULT_TYPE):
     try:
-        response = client.chat.completions.create(
-            model="gpt-3.5-turbo",
-            messages=[{"role": "user", "content": user_message}]
+        user_text = ' '.join(context.args)
+        if not user_text:
+            await update.message.reply_text("Iltimos, savolingizni yozing. Masalan: /ask Salom, dunyo!")
+            return
+
+        # OpenAI API chaqiruv (eski versiyada Completion.create)
+        response = openai.Completion.create(
+            model="text-davinci-003",
+            prompt=user_text,
+            max_tokens=100
         )
-
-        reply = response.choices[0].message.content
-        await update.message.reply_text(reply)
-
+        answer = response.choices[0].text.strip()
+        await update.message.reply_text(answer)
     except Exception as e:
         await update.message.reply_text(f"Xatolik yuz berdi: {e}")
 
-# Botni ishga tushirish
+# Botni ishga tushurish
 async def main():
     app = ApplicationBuilder().token(TELEGRAM_API_KEY).build()
 
     app.add_handler(CommandHandler("start", start))
-    app.add_handler(MessageHandler(filters.TEXT & (~filters.COMMAND), handle_message))
+    app.add_handler(CommandHandler("ask", ask))
 
-    print("Bot Railway’da ishlayapti...")
+    print("Bot ishga tushdi...")
     await app.run_polling()
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     import asyncio
     asyncio.run(main())
